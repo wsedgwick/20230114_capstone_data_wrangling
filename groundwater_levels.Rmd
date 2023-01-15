@@ -1,0 +1,105 @@
+---
+title: "groundwater_levels"
+author: "Wade Sedgwick"
+output: html_document
+date: '2023-01-14'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+library(sf)
+library(tmap)
+library(stars)
+library(usmap)
+library(ggmap)
+library(tigris)
+
+stations <- read_csv(here("data", "gw_level_stations.csv"))
+
+measurements <- read_csv(here("data", "measurements.csv"))
+```
+
+### Measurement data wrangling
+
+```{r}
+# wlm = well level meter
+# rpe = relative point elevation
+# gwe = groundwater elevation
+# gse = ground surface elevation
+# gse_gwe = ground surface elevation - groundwater elevation = depth til water table
+
+head(stations)
+names(stations)
+
+measurements_2010 <- measurements %>% 
+  filter(msmt_date > '2010-01-01')
+
+thomasFire_measurements <- measurements %>% 
+  filter(between(msmt_date, as.Date('2017-06-01'), as.Date('2018-06-01')))
+
+thomasFire_measurements <- measurements %>%
+  filter(msmt_date > '2017-06-01')
+
+thomasFire_measurements <- thomasFire_measurements %>% 
+  filter(msmt_date < '2018-06-01')
+
+tF_measurements <- thomasFire_measurements %>% 
+  select(site_code, wlm_id, msmt_date, wlm_rpe, wlm_gse, gwe, gse_gwe, monitoring_program) %>% 
+  rename(water_depth = "gse_gwe",
+         relative_point_elevation = "wlm_rpe",
+         ground_surface_elevation = "wlm_gse",
+         groundwater_elevation = "gwe")
+
+tF_measurements
+
+ggplot(data = tF_measurements, aes(x = msmt_date, y = water_depth)) +
+  geom_point()
+```
+
+### Stations data wrangling
+
+```{r}
+head(stations)
+# filter by location in ventura county
+
+qmap
+
+ca_counties <- counties(state = "CA")
+ventura <- county_subdivisions("California", "Ventura")
+
+ojai <- ventura %>%
+  filter(NAME == "Ojai-Mira Monte")
+
+ventura_stations <- stations %>% 
+  filter(county_name == "Ventura",
+         str_detect(basin_name, c("Ventura", "Ojai"))) %>% 
+  select("stn_id", "site_code", "swn", "well_name", "latitude", "longitude", "basin_name", "county_name", "well_depth")
+
+ventura_stations_sp <- ventura_stations %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+joined_vent_st_meas <- ventura_stations_sp %>% 
+  full_join(tF_measurements, by = "site_code") %>% 
+  filter(NAME == "Ojai-Mira Monte")
+
+
+tm_shape(ojai) +
+  tm_polygons() +
+  tm_shape(joined_vent_st_meas) +
+  tm_dots(col = "water_depth")
+
+# need to filter out overlapping well data for each date
+
+cali <- st_as_sf(cali, coords = "x", "y", crs = 4326)
+
+```
+
+new_pumpkins <- new_pumpkins %>% 
+  mutate(price = case_when(
+    str_detect(package, "1 1/9") ~ price/(1.1),
+    str_detect(package, "1/2") ~ price*2,
+    TRUE ~ price))
+
